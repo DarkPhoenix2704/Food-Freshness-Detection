@@ -1,41 +1,10 @@
-import configparser
-import datetime
-import json
-import logging
-import os
 import time
-from os.path import dirname, join
 
-import flask
-import requests
-from flask import Flask, jsonify, request
+from flask import Flask, request
 from waitress import serve
-
 from detection_model import modelPrediction
 
-config = configparser.RawConfigParser()
-config.read(os.path.join(os.getcwd() , "../config/config.property"))
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s:%(levelname)s:%(thread)d:%(threadName)s:%(process)d:%(message)s")
-file_handler = logging.FileHandler('../logs/freshnessDetection.log')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-logger.addHandler(logging.StreamHandler())
-
-STATUSMESSAGE = dict(config.items("STATUSMESSAGE"))
-messageL20037 = STATUSMESSAGE["l20037"]
-messageE50063 = STATUSMESSAGE["e50063"]
-messageE50064 = STATUSMESSAGE["e50064"]
-
-
-APIENDPOINT = dict(config.items('APIENDPOINT'))
-endpointapi = APIENDPOINT['endpoint']
-port_no = APIENDPOINT["port_no"]
-
 app = Flask(__name__)
-app.config['JSON_SORT_KEYS'] = True
 
 
 class_names = ['F_Banana', 'F_Lemon', 'F_Lulo', 'F_Mango', 'F_Orange', 'F_Strawberry', 'F_Tamarillo', 'F_Tomato', 'S_Banana', 'S_Lemon', 'S_Lulo', 'S_Mango', 'S_Orange', 'S_Strawberry', 'S_Tamarillo', 'S_Tomato']
@@ -56,42 +25,39 @@ def generateResponse(imgPath, freshness, outRequest, statuscode, start):
 
     if(outRequest == "NA"):
         if(statuscode == "E50063"):
-            return {"imgpath": imgPath, "foodStatus":food_detection, "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": messageE50063, "timeTaken": time.time()-start},500
+            return {"imgpath": imgPath, "foodStatus":food_detection, "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": 'UNABLE TO LOAD MODEL', "timeTaken": time.time()-start},500
         elif(statuscode == "E50064"):
-            return {"imgpath": imgPath, "foodStatus":food_detection, "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": messageE50064, "timeTaken": time.time()-start},500
+            return {"imgpath": imgPath, "foodStatus":food_detection, "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": 'INPUT IMAGE NOT FOUND', "timeTaken": time.time()-start},500
         else:
             print("UNHANDLED EXCEPTION")
-            return {"imgpath": imgPath, "foodStatus":food_detection, "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": messageE50063, "timeTaken": time.time()-start},500
+            return {"imgpath": imgPath, "foodStatus":food_detection, "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": 'UNABLE TO LOAD MODEL', "timeTaken": time.time()-start},500
     else :
-        return {"imgpath": imgPath, "foodStatus":food_detection,  "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": messageL20037, "timeTaken": time.time()-start},200
+        return {"imgpath": imgPath, "foodStatus":food_detection,  "foodLabel": outRequest, "statusCode": statuscode, "statusMessage": 'FRESHNESS DETECTED SUCCESSFULLY', "timeTaken": time.time()-start},200
             
 
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-    print(e)
+    # print(e)
     start = time.time()
-    logger.info("INVALID REQUEST")
     resp, httpCode = generateResponse("NA","NA","NA",'E50010',start)
     return resp, 500
 
 
-@app.route(endpointapi, methods = ["POST"])
+@app.route('/', methods = ["POST"])
 def damage_detection_api():
     start = time.time()
     requestsParam  = request.get_json()
     imgPath = requestsParam["docpath"]
     
-    logger.info("IMAGEPATH {}".format(imgPath))
     try:
-        out_label, freshness , statuscode = modelPrediction(imgPath, img_height, img_width, num_classes, class_names, logger)
+        out_label, freshness , statuscode = modelPrediction(imgPath, img_height, img_width, num_classes, class_names)
         resp, httpCode = generateResponse(imgPath, freshness , out_label, statuscode, start)
 
     except:
-        logger.exception("CANNOT CONNECT TO SERVER")
-        resp, httpCode = generateResponse(imgPath, "NA", "NA", "E50063" , start)
+        resp, httpCode = generateResponse(imgPath, "NA", "NA", "Aaaaaaa" , start)
     return resp, httpCode
 
 if __name__ == "__main__":
-    serve(app, host = "0.0.0.0", port = port_no)
+    serve(app, host = "0.0.0.0", port = 5000)
    
