@@ -3,9 +3,11 @@ import tensorflow as tf
 from keras.applications.inception_v3 import (decode_predictions,
                                              preprocess_input)
 from tensorflow import keras
+from PIL import Image
+import keras.preprocessing.image as image_utils
 
 
-def modelPrediction(input_img, img_height, img_width, num_classes, class_names):
+def modelPrediction(imageBytes, img_height, img_width, num_classes, class_names):
     model = keras.Sequential(
         [
             keras.layers.experimental.preprocessing.Rescaling(
@@ -28,15 +30,17 @@ def modelPrediction(input_img, img_height, img_width, num_classes, class_names):
     except Exception as e:
         return "NA", "NA", "Hello"
 
-    img_path = input_img
     try:
-        img = keras.preprocessing.image.load_img(
-            img_path, target_size=(img_height, img_width))
-    except:
+        im = Image.open(imageBytes)
+        im.save("test.jpg")
+        img = image_utils.load_img(
+            'test.jpg', target_size=(img_height, img_width))
+    except Exception as e:
+        print(e)
         return "NA", "NA", "HEHEH"
 
     img_array = keras.preprocessing.image.img_to_array(img)
-    img_array = tf.expand_dims(img_array, 0)  # Create a batch
+    img_array = np.expand_dims(img_array, axis=0)  # Create a batch
 
     predictions = model.predict(img_array)
     score = tf.nn.softmax(predictions[0])
